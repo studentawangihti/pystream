@@ -1,11 +1,11 @@
-REQ :
-Flask
-flask-socketio
-pyopenssl
-eventlet
-
 # PyStream 📹
 Local high-quality video streaming app (VDO.Ninja clone) using WebRTC & Flask.
+
+## REQ :
+- Flask
+- lask-socketio
+- pyopenssl
+- eventlet
 
 ## Fitur
 - 4K 60FPS Support
