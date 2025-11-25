@@ -6,6 +6,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'rahasia_ninja'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+@app.route('/obs')
+def obs_feed():
+    return render_template('obs.html')
+
 @app.route('/')
 def index():
     return render_template('index.html')

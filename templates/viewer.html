@@ -11,12 +11,12 @@
     class="bg-gray-950 text-white min-h-screen flex flex-col items-center justify-center font-sans"
   >
     <div
-      class="absolute top-0 w-full p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent"
+      class="absolute top-0 w-full p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent pointer-events-auto"
     >
       <div class="flex items-center gap-4">
         <a
           href="/"
-          class="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 px-4 py-2 rounded-full border border-gray-600 transition text-sm font-bold shadow-lg backdrop-blur"
+          class="flex items-center gap-2 bg-gray-800/80 hover:bg-gray-700 px-4 py-2 rounded-full border border-gray-600 transition text-sm font-bold shadow-lg backdrop-blur text-white no-underline"
         >
           🏠 <span class="hidden sm:inline">Home</span>
         </a>
@@ -27,11 +27,17 @@
         </h1>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button
+          onclick="showObsModal()"
+          class="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-3 py-2 rounded-full border border-purple-500/30 transition text-xs sm:text-sm font-bold backdrop-blur"
+        >
+          🔗 <span class="hidden sm:inline">OBS Link</span>
+        </button>
+
         <button
           onclick="location.reload()"
-          class="flex items-center gap-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-4 py-2 rounded-full border border-blue-500/30 transition text-sm font-bold backdrop-blur"
-          title="Reload Connection"
+          class="flex items-center gap-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-3 py-2 rounded-full border border-blue-500/30 transition text-xs sm:text-sm font-bold backdrop-blur"
         >
           🔄 <span class="hidden sm:inline">Refresh</span>
         </button>
@@ -39,7 +45,46 @@
         <div
           class="font-mono text-xs text-green-400 bg-green-900/20 px-3 py-2 rounded-full border border-green-900/50 backdrop-blur"
         >
-          IN: <span id="bitrate">0</span> kbps
+          IN: <span id="bitrate">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="obsModal"
+      class="hidden absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300"
+    >
+      <div
+        class="bg-gray-900 border border-gray-700 p-6 rounded-2xl w-full max-w-md shadow-2xl text-center"
+      >
+        <h3 class="text-lg font-bold text-white mb-4">🔗 OBS Feed URL</h3>
+        <p class="text-gray-400 text-xs mb-4">
+          Gunakan link ini di "Browser Source" OBS Studio.
+        </p>
+
+        <div class="bg-black/50 p-4 rounded-xl border border-gray-800 mb-6">
+          <p
+            id="obsLinkText"
+            class="text-blue-400 font-mono text-sm break-all select-all cursor-pointer"
+            onclick="copyObsLinkViewer()"
+          >
+            Loading...
+          </p>
+        </div>
+
+        <div class="flex gap-3 justify-center">
+          <button
+            onclick="copyObsLinkViewer()"
+            class="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-bold text-white transition"
+          >
+            Copy Link
+          </button>
+          <button
+            onclick="document.getElementById('obsModal').classList.add('hidden')"
+            class="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg font-bold text-white transition"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
@@ -73,7 +118,6 @@
           <p class="mt-4 font-bold text-gray-400 tracking-wide animate-pulse">
             SEARCHING SIGNAL...
           </p>
-          <p class="text-xs text-gray-600 mt-2">Pastikan Broadcaster Online</p>
         </div>
 
         <div
@@ -85,20 +129,19 @@
               >LIVE</span
             >
           </div>
-
           <button
             id="btnUnmute"
             onclick="unmute()"
             class="hidden bg-white text-black px-4 py-2 rounded-full font-bold text-sm hover:scale-105 transition flex items-center gap-2"
           >
-            🔊 Unmute Sound
+            🔊 Unmute
           </button>
         </div>
       </div>
 
       <div class="flex justify-between items-center px-2">
         <div class="text-sm text-gray-500">
-          Connection: <span class="text-gray-300">P2P Encrypted</span>
+          Connection: <span class="text-gray-300">P2P</span>
         </div>
         <button
           onclick="toggleFullScreen()"
@@ -115,54 +158,39 @@
       const rtcConfig = {
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       };
-      let peerConnection;
-
+      let peerConnection, checkInterval;
       const video = document.getElementById("remoteVideo");
       const waiting = document.getElementById("waitingMsg");
       const btnUnmute = document.getElementById("btnUnmute");
 
-      // Join Room
       socket.emit("join", room);
-
-      // Auto Reconnect Logic
       socket.on("ready", () => {
-        console.log("Broadcaster detected via Ready signal");
         socket.emit("join", room);
       });
 
       socket.on("offer", async (data) => {
-        console.log("Offer received");
         if (peerConnection) peerConnection.close();
         peerConnection = new RTCPeerConnection(rtcConfig);
-
         peerConnection.ontrack = (e) => {
           video.srcObject = e.streams[0];
           waiting.classList.add("opacity-0", "pointer-events-none");
-
-          // Autoplay Logic
           video
             .play()
             .then(() => {
-              // Jika autoplay berhasil (biasanya muted), tampilkan tombol unmute
               btnUnmute.classList.remove("hidden");
             })
             .catch(() => {
-              // Jika autoplay diblokir total, force button appear
-              btnUnmute.innerText = "▶ Play Stream";
               btnUnmute.classList.remove("hidden");
             });
         };
-
         peerConnection.onicecandidate = (e) => {
           if (e.candidate)
             socket.emit("candidate", { candidate: e.candidate, room: room });
         };
-
         await peerConnection.setRemoteDescription(data.offer);
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         socket.emit("answer", { answer, room });
-
         startBitrate();
       });
 
@@ -170,29 +198,36 @@
         if (peerConnection) await peerConnection.addIceCandidate(d.candidate);
       });
 
-      // Helper Functions
       function unmute() {
         if (video.paused) video.play();
         video.muted = false;
         btnUnmute.classList.add("hidden");
       }
-
       function toggleFullScreen() {
-        if (!document.fullscreenElement) {
-          video.requestFullscreen().catch((err) => {
-            alert(
-              `Error attempting to enable full-screen mode: ${err.message} (${err.name})`
-            );
-          });
-        } else {
-          document.exitFullscreen();
-        }
+        if (!document.fullscreenElement)
+          video.requestFullscreen().catch(() => {});
+        else document.exitFullscreen();
+      }
+
+      // NEW OBS LOGIC
+      function showObsModal() {
+        const url = window.location.origin + "/obs";
+        document.getElementById("obsLinkText").innerText = url;
+        document.getElementById("obsModal").classList.remove("hidden");
+      }
+      function copyObsLinkViewer() {
+        const url = document.getElementById("obsLinkText").innerText;
+        navigator.clipboard.writeText(url).then(() => {
+          alert("Link disalin!");
+          document.getElementById("obsModal").classList.add("hidden");
+        });
       }
 
       function startBitrate() {
         let lB = 0,
           lT = 0;
-        setInterval(async () => {
+        if (checkInterval) clearInterval(checkInterval);
+        checkInterval = setInterval(async () => {
           if (!peerConnection) return;
           try {
             const stats = await peerConnection.getStats(null);

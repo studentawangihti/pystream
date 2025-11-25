@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>PyStream Hybrid</title>
+    <title>Broadcaster Studio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -16,7 +16,8 @@
       ::-webkit-scrollbar {
         display: none;
       }
-      /* Slider Styling */
+
+      /* Custom Range Slider */
       input[type="range"] {
         -webkit-appearance: none;
         background: transparent;
@@ -38,7 +39,7 @@
         border-radius: 2px;
       }
 
-      /* UI Transitions */
+      /* UI Fade Transitions */
       .ui-fade {
         transition: opacity 0.3s ease, transform 0.3s ease;
       }
@@ -60,27 +61,22 @@
         class="flex flex-col md:flex-row gap-2 md:gap-4 items-start md:items-center"
       >
         <div
-          class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-gray-700 flex items-center gap-2 shadow-lg"
+          class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-gray-700 text-gray-300 text-[10px] font-mono inline-flex items-center gap-1 w-max shadow-lg"
         >
           <div
             class="w-2 h-2 rounded-full bg-gray-500 transition-colors"
             id="statusDot"
           ></div>
-          <span
-            id="status"
-            class="text-[10px] md:text-xs font-bold tracking-widest text-gray-400"
-            >OFFLINE</span
-          >
+          <span id="status">OFFLINE</span>
         </div>
-
-        <div class="flex gap-2">
+        <div class="flex gap-1">
           <div
-            class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-blue-900/50 text-[10px] md:text-xs text-blue-300 font-mono"
+            class="bg-black/60 backdrop-blur px-2 py-1 rounded-full border border-blue-900/50 text-blue-300 text-[10px] font-mono block w-max shadow-lg"
           >
-            ▲ <span id="bitrate">0</span> kbps
+            ▲ <span id="bitrate">0</span>k
           </div>
           <div
-            class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-purple-900/50 text-[10px] md:text-xs text-purple-300 font-mono"
+            class="bg-black/60 backdrop-blur px-2 py-1 rounded-full border border-purple-900/50 text-purple-300 text-[10px] font-mono block w-max shadow-lg"
           >
             ⚙️ <span id="resDisplay">Auto</span>
           </div>
@@ -88,11 +84,28 @@
       </div>
 
       <div class="flex gap-2 pointer-events-auto">
+        <a
+          href="/"
+          class="bg-gray-800/80 hover:bg-gray-700 p-0 rounded-full border border-gray-600 transition w-10 h-10 flex items-center justify-center text-white shadow-lg text-lg"
+          title="Back to Home"
+        >
+          🏠
+        </a>
+
         <button
           onclick="toggleMirror()"
-          class="bg-gray-800/80 hover:bg-gray-700 p-2 md:p-3 rounded-full border border-gray-600 transition w-10 h-10 flex items-center justify-center"
+          class="bg-gray-800/80 hover:bg-gray-700 p-0 rounded-full border border-gray-600 transition w-10 h-10 flex items-center justify-center text-lg shadow-lg"
+          title="Mirror Video"
         >
           🪞
+        </button>
+
+        <button
+          onclick="toggleSettings()"
+          class="bg-gray-800/80 hover:bg-gray-700 p-0 rounded-full border border-gray-600 transition w-10 h-10 flex items-center justify-center text-lg shadow-lg"
+          title="Settings"
+        >
+          ⚙️
         </button>
       </div>
     </div>
@@ -114,6 +127,7 @@
       >
         <span class="text-5xl mb-4">⏸️</span>
         <h2 class="text-2xl font-bold tracking-widest text-gray-400">PAUSED</h2>
+        <p class="text-xs text-gray-600 mt-2">Audio Active</p>
       </div>
 
       <div
@@ -140,21 +154,34 @@
       </div>
     </div>
 
+    <button
+      id="btnShowUI"
+      onclick="toggleUI(true)"
+      class="hidden absolute bottom-8 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur border border-white/20 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg hover:bg-black/80 transition transform translate-y-0 opacity-100 animate-bounce pointer-events-auto"
+    >
+      ▲ Show Controls
+    </button>
+
     <div
       id="controlDock"
-      class="absolute bottom-0 md:bottom-8 left-0 md:left-1/2 md:-translate-x-1/2 w-full md:w-auto z-30 ui-fade"
+      class="absolute bottom-0 md:bottom-8 left-0 md:left-1/2 md:-translate-x-1/2 w-full md:w-auto z-30 ui-fade pointer-events-auto"
     >
       <div
-        class="bg-gray-900/95 md:bg-gray-900/80 backdrop-blur-md border-t md:border border-gray-700 rounded-t-3xl md:rounded-2xl px-6 py-4 md:px-8 md:py-4 flex flex-row items-center justify-between md:justify-center gap-4 md:gap-8 shadow-2xl"
+        class="bg-gray-900/95 md:bg-gray-900/80 backdrop-blur-md border-t md:border border-gray-700 rounded-t-3xl md:rounded-2xl px-6 py-4 md:px-8 md:py-4 flex flex-row items-center justify-between md:justify-center gap-4 md:gap-8 shadow-2xl transition-all"
       >
-        <div class="flex gap-3">
+        <div
+          class="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-700 rounded-full md:hidden cursor-pointer"
+          onclick="toggleUI(false)"
+        ></div>
+
+        <div class="flex gap-3 mt-2 md:mt-0">
           <button
             onclick="toggleMic()"
             id="btnMic"
-            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition"
+            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition group"
           >
             <div
-              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 group-hover:bg-gray-700 border border-gray-600 flex items-center justify-center text-lg"
             >
               🎤
             </div>
@@ -163,10 +190,10 @@
           <button
             onclick="toggleCam()"
             id="btnCam"
-            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition"
+            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition group"
           >
             <div
-              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 group-hover:bg-gray-700 border border-gray-600 flex items-center justify-center text-lg"
             >
               📷
             </div>
@@ -184,39 +211,32 @@
           </button>
         </div>
 
-        <div class="flex gap-3">
+        <div class="flex gap-3 mt-2 md:mt-0">
           <button
             onclick="togglePause()"
             id="btnPause"
-            class="flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white disabled:opacity-30 transition"
+            class="flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white disabled:opacity-30 transition group"
             disabled
           >
             <div
-              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 group-hover:bg-gray-700 border border-gray-600 flex items-center justify-center text-lg"
             >
               ⏸️
             </div>
             <span class="text-[9px] uppercase font-bold md:hidden">Pause</span>
           </button>
 
-          <div class="relative">
-            <button
-              onclick="toggleSettings()"
-              class="flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white transition"
+          <button
+            onclick="toggleUI(false)"
+            class="hidden md:flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white transition group"
+            title="Hide Controls"
+          >
+            <div
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 group-hover:bg-gray-700 border border-gray-600 flex items-center justify-center text-lg"
             >
-              <div
-                class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
-              >
-                ⚙️
-              </div>
-              <span class="text-[9px] uppercase font-bold md:hidden">Set</span>
-            </button>
-            <select
-              id="cameraSelect"
-              onchange="switchCamera()"
-              class="hidden"
-            ></select>
-          </div>
+              ▼
+            </div>
+          </button>
         </div>
       </div>
     </div>
@@ -243,30 +263,30 @@
         <div class="space-y-6 overflow-y-auto flex-1">
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-3"
-              >Resolution & Codec</label
+              >Resolution</label
             >
             <div class="grid grid-cols-2 gap-3">
               <button
                 onclick="selectRes(3840,2160, this)"
-                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold transition hover:bg-gray-700"
               >
                 4K UHD
               </button>
               <button
                 onclick="selectRes(1920,1080, this)"
-                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold transition hover:bg-gray-700"
               >
                 1080p
               </button>
               <button
                 onclick="selectRes(1280,720, this)"
-                class="res-btn bg-blue-600 text-white p-4 rounded-xl text-sm border border-blue-500 shadow-lg font-bold"
+                class="res-btn bg-blue-600 text-white p-4 rounded-xl text-sm border border-blue-500 shadow-lg font-bold transition hover:bg-blue-500"
               >
-                720p
+                720p (Rec)
               </button>
               <button
                 onclick="selectRes(640,360, this)"
-                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold transition hover:bg-gray-700"
               >
                 360p
               </button>
@@ -292,12 +312,34 @@
 
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase mb-3"
-              >Camera</label
+              >Camera Source</label
             >
             <select
-              id="cameraSelectModal"
+              id="cameraSelect"
               class="w-full bg-gray-800 text-white p-4 rounded-xl border border-gray-600 focus:border-blue-500 outline-none text-sm"
             ></select>
+          </div>
+
+          <div class="bg-black/40 p-4 rounded-xl border border-gray-700">
+            <label
+              class="block text-xs font-bold text-purple-400 uppercase mb-2"
+              >🔗 OBS Browser Source Link</label
+            >
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="obsUrlInput"
+                readonly
+                class="w-full bg-black/50 text-gray-300 text-xs p-3 rounded-lg border border-gray-700 font-mono select-all focus:outline-none"
+                value="Loading..."
+              />
+              <button
+                onclick="copyObsLink()"
+                class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-xs font-bold transition whitespace-nowrap active:scale-95"
+              >
+                COPY
+              </button>
+            </div>
           </div>
         </div>
 
@@ -327,44 +369,54 @@
       let currentDeviceId = null;
       let uiTimeout;
 
-      // UI References
+      // DOM Elements
       const localVideo = document.getElementById("localVideo");
       const cameraSelect = document.getElementById("cameraSelect");
-      const cameraSelectModal = document.getElementById("cameraSelectModal");
       const statusEl = document.getElementById("status");
       const statusDot = document.getElementById("statusDot");
       const bitrateEl = document.getElementById("bitrate");
       const resDisplay = document.getElementById("resDisplay");
 
-      // --- UI AUTO HIDE (Desktop Only) ---
+      // --- 1. RESPONSIVE UI LOGIC ---
+      // Only enable hover-to-show on desktop screens
       if (window.matchMedia("(min-width: 768px)").matches) {
         document.getElementById("bodyEl").addEventListener("mousemove", showUI);
       }
 
       function showUI() {
-        const top = document.getElementById("topBar");
-        const dock = document.getElementById("controlDock");
-        const focus = document.getElementById("focusPanel");
-
-        top.classList.remove("ui-hidden-desktop");
-        dock.classList.remove("ui-hidden-desktop");
-        focus.classList.remove("ui-hidden-desktop");
+        // Show all UI elements
+        ["topBar", "controlDock", "focusPanel"].forEach((id) =>
+          document.getElementById(id).classList.remove("ui-hidden-desktop")
+        );
 
         clearTimeout(uiTimeout);
         uiTimeout = setTimeout(() => {
+          // If modal is NOT open, hide UI after 3 seconds
           if (
-            !document
+            document
               .getElementById("settingsPanel")
               .classList.contains("hidden")
-          )
-            return;
-          top.classList.add("ui-hidden-desktop");
-          dock.classList.add("ui-hidden-desktop");
-          focus.classList.add("ui-hidden-desktop");
+          ) {
+            ["topBar", "controlDock", "focusPanel"].forEach((id) =>
+              document.getElementById(id).classList.add("ui-hidden-desktop")
+            );
+          }
         }, 3000);
       }
 
-      // --- BITRATE & CODEC BOOSTER ---
+      function toggleUI(show) {
+        const panel = document.getElementById("controlDock");
+        const btn = document.getElementById("btnShowUI");
+        if (show) {
+          panel.classList.remove("translate-y-full", "opacity-0");
+          btn.classList.add("hidden");
+        } else {
+          panel.classList.add("translate-y-full", "opacity-0");
+          btn.classList.remove("hidden");
+        }
+      }
+
+      // --- 2. BITRATE & CODEC HACKS ---
       function setMediaBitrate(sdp, bitrateKbps) {
         var lines = sdp.split("\n");
         var line = -1;
@@ -387,24 +439,26 @@
         return lines.join("\n");
       }
 
-      // FUNGSI BARU: Force VP9 Codec (Lebih tajam dari VP8)
-      function preferCodec(sdp, codec) {
-        var sdpLines = sdp.split("\r\n");
-        var mLineIndex = -1;
-        for (var i = 0; i < sdpLines.length; i++) {
-          if (sdpLines[i].search("m=video") !== -1) {
-            mLineIndex = i;
-            break;
-          }
-        }
-        if (mLineIndex === -1) return sdp;
-
-        // Logic sederhana untuk memindahkan VP9/H264 ke prioritas utama di SDP
-        // (Implementasi penuh SDP munging agak panjang, ini versi simplenya)
-        return sdp; // Versi basic: Browser modern biasanya auto-negotiate codec terbaik.
+      function setCodecPreferences(pc) {
+        const transceiver = pc
+          .getTransceivers()
+          .find((t) => t.sender.track === localStream.getVideoTracks()[0]);
+        if (!transceiver || !RTCRtpReceiver.getCapabilities) return;
+        const codecs = RTCRtpReceiver.getCapabilities("video").codecs;
+        const preferred = [];
+        // Prefer AV1 > VP9 > H264
+        ["video/AV1", "video/VP9", "video/H264"].forEach((mime) =>
+          preferred.push(...codecs.filter((c) => c.mimeType === mime))
+        );
+        codecs.forEach((c) => {
+          if (!preferred.find((p) => p.mimeType === c.mimeType))
+            preferred.push(c);
+        });
+        if (transceiver.setCodecPreferences)
+          transceiver.setCodecPreferences(preferred);
       }
 
-      // --- INIT ---
+      // --- 3. INITIALIZATION ---
       async function init() {
         try {
           await navigator.mediaDevices.getUserMedia({
@@ -413,23 +467,22 @@
           });
           await getCameras();
           await startPreview();
-          if (window.innerWidth > 768) showUI();
+          initObsLink();
+          if (window.innerWidth > 768) showUI(); // Show UI initially on desktop
         } catch (e) {
-          alert("Camera Permission Required!");
+          alert("Camera Permission Required! Ensure HTTPS.");
         }
       }
 
       async function getCameras() {
         const devs = await navigator.mediaDevices.enumerateDevices();
         const vDevs = devs.filter((d) => d.kind === "videoinput");
-        [cameraSelect, cameraSelectModal].forEach((sel) => {
-          sel.innerHTML = "";
-          vDevs.forEach((d) => {
-            const o = document.createElement("option");
-            o.value = d.deviceId;
-            o.text = d.label || `Cam ${sel.length + 1}`;
-            sel.appendChild(o);
-          });
+        cameraSelect.innerHTML = "";
+        vDevs.forEach((d) => {
+          const o = document.createElement("option");
+          o.value = d.deviceId;
+          o.text = d.label || `Cam ${cameraSelect.length + 1}`;
+          cameraSelect.appendChild(o);
         });
       }
 
@@ -447,9 +500,9 @@
         };
 
         // Logic Camera Selection
-        if (deviceId || cameraSelectModal.value) {
+        if (deviceId || currentDeviceId) {
           constraints.video.deviceId = {
-            exact: deviceId || cameraSelectModal.value,
+            exact: deviceId || currentDeviceId || cameraSelect.value,
           };
         } else {
           constraints.video.facingMode = { ideal: "environment" }; // Default Back
@@ -461,13 +514,13 @@
 
           const sett = localStream.getVideoTracks()[0].getSettings();
 
-          // Responsive Mirror: Desktop (User) vs Mobile (Env)
+          // Mirror Logic: User (Front) = Mirror, Env (Back) = Normal
           if (sett.facingMode === "user") localVideo.classList.add("mirrored");
           else localVideo.classList.remove("mirrored");
 
           if (sett.deviceId) {
             cameraSelect.value = sett.deviceId;
-            cameraSelectModal.value = sett.deviceId;
+            currentDeviceId = sett.deviceId;
           }
           if (sett.height)
             resDisplay.innerText = `${sett.height}p @ ${Math.round(
@@ -480,11 +533,10 @@
         }
       }
 
-      // --- STREAMING CORE ---
+      // --- 4. ACTIONS ---
       function toggleStream() {
         const btnAction = document.getElementById("btnAction");
         const btnIcon = document.getElementById("btnIcon");
-
         if (!isStreaming) {
           isStreaming = true;
           socket.emit("join", room);
@@ -492,11 +544,9 @@
           statusEl.classList.replace("text-gray-400", "text-red-500");
           statusDot.classList.replace("bg-gray-500", "bg-red-500");
           statusDot.classList.add("animate-pulse");
-
           btnIcon.innerText = "STOP";
           btnAction.classList.add("bg-gray-800", "border-gray-600");
           btnAction.classList.remove("bg-red-600", "border-red-400");
-
           document.getElementById("btnPause").disabled = false;
           startBitrateCheck();
         } else {
@@ -504,7 +554,14 @@
         }
       }
 
-      // UI Toggles
+      function switchCamera() {
+        // Full reset connection on camera switch
+        if (peerConnection) peerConnection.close();
+        startPreview(cameraSelect.value).then(() => {
+          if (isStreaming) createOffer();
+        });
+      }
+
       function togglePause() {
         if (!localStream) return;
         isPaused = !isPaused;
@@ -513,6 +570,7 @@
           .getElementById("pauseOverlay")
           .classList.toggle("hidden", !isPaused);
       }
+
       function toggleMic() {
         isMicOn = !isMicOn;
         localStream.getAudioTracks()[0].enabled = isMicOn;
@@ -520,6 +578,7 @@
         b.classList.toggle("text-green-400", isMicOn);
         b.classList.toggle("text-red-400", !isMicOn);
       }
+
       function toggleCam() {
         isCamOn = !isCamOn;
         localStream.getVideoTracks()[0].enabled = isCamOn;
@@ -527,6 +586,7 @@
         b.classList.toggle("text-green-400", isCamOn);
         b.classList.toggle("text-red-400", !isCamOn);
       }
+
       function toggleMirror() {
         localVideo.classList.toggle("mirrored");
       }
@@ -549,17 +609,10 @@
       function applyConfig() {
         currentFps = document.getElementById("fpsRange").value;
         toggleSettings();
-        switchCamera();
+        switchCamera(); // Restart stream with new config
       }
 
-      function switchCamera() {
-        if (peerConnection) peerConnection.close();
-        startPreview(cameraSelectModal.value).then(() => {
-          if (isStreaming) createOffer();
-        });
-      }
-
-      // Focus
+      // Focus Logic
       function checkFocus(t) {
         const c = t.getCapabilities ? t.getCapabilities() : {};
         document
@@ -581,7 +634,18 @@
           .catch(() => {});
       }
 
-      // WebRTC
+      // OBS Link
+      function initObsLink() {
+        document.getElementById("obsUrlInput").value =
+          window.location.origin + "/obs";
+      }
+      function copyObsLink() {
+        navigator.clipboard
+          .writeText(document.getElementById("obsUrlInput").value)
+          .then(() => alert("Link Copied!"));
+      }
+
+      // --- 5. WEBRTC SIGNALING ---
       socket.on("ready", () => {
         if (isStreaming) createOffer();
       });
@@ -592,14 +656,15 @@
         localStream
           .getTracks()
           .forEach((t) => peerConnection.addTrack(t, localStream));
+
+        setCodecPreferences(peerConnection); // Force AV1/VP9
+
         peerConnection.onicecandidate = (e) => {
           if (e.candidate)
             socket.emit("candidate", { candidate: e.candidate, room: room });
         };
-
         const offer = await peerConnection.createOffer();
-        offer.sdp = setMediaBitrate(offer.sdp, 50000); // BITRATE UNLOCKER (50 Mbps)
-
+        offer.sdp = setMediaBitrate(offer.sdp, 100000); // Force 100Mbps
         await peerConnection.setLocalDescription(offer);
         socket.emit("offer", { offer, room });
       }
