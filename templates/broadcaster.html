@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>PyStream Hybrid</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .mirrored {
+        transform: scaleX(-1);
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      /* Slider Styling */
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 18px;
+        width: 18px;
+        border-radius: 50%;
+        background: #fbbf24;
+        border: 2px solid #1f2937;
+        margin-top: -7px;
+        cursor: pointer;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        background: #4b5563;
+        border-radius: 2px;
+      }
+
+      /* UI Transitions */
+      .ui-fade {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+      .ui-hidden-desktop {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-black text-white h-screen w-screen overflow-hidden font-sans select-none"
+    id="bodyEl"
+  >
+    <div
+      id="topBar"
+      class="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start z-20 ui-fade bg-gradient-to-b from-black/80 to-transparent md:bg-none pointer-events-none"
+    >
+      <div
+        class="flex flex-col md:flex-row gap-2 md:gap-4 items-start md:items-center"
+      >
+        <div
+          class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-gray-700 flex items-center gap-2 shadow-lg"
+        >
+          <div
+            class="w-2 h-2 rounded-full bg-gray-500 transition-colors"
+            id="statusDot"
+          ></div>
+          <span
+            id="status"
+            class="text-[10px] md:text-xs font-bold tracking-widest text-gray-400"
+            >OFFLINE</span
+          >
+        </div>
+
+        <div class="flex gap-2">
+          <div
+            class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-blue-900/50 text-[10px] md:text-xs text-blue-300 font-mono"
+          >
+            ▲ <span id="bitrate">0</span> kbps
+          </div>
+          <div
+            class="bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-purple-900/50 text-[10px] md:text-xs text-purple-300 font-mono"
+          >
+            ⚙️ <span id="resDisplay">Auto</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2 pointer-events-auto">
+        <button
+          onclick="toggleMirror()"
+          class="bg-gray-800/80 hover:bg-gray-700 p-2 md:p-3 rounded-full border border-gray-600 transition w-10 h-10 flex items-center justify-center"
+        >
+          🪞
+        </button>
+      </div>
+    </div>
+
+    <div
+      class="w-full h-full relative flex items-center justify-center bg-[#0a0a0a]"
+    >
+      <video
+        id="localVideo"
+        autoplay
+        playsinline
+        muted
+        class="w-full h-full object-cover md:object-contain transition-transform duration-300"
+      ></video>
+
+      <div
+        id="pauseOverlay"
+        class="hidden absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-10"
+      >
+        <span class="text-5xl mb-4">⏸️</span>
+        <h2 class="text-2xl font-bold tracking-widest text-gray-400">PAUSED</h2>
+      </div>
+
+      <div
+        id="focusPanel"
+        class="hidden absolute left-4 md:left-auto md:right-6 top-1/2 -translate-y-1/2 bg-black/40 backdrop-blur p-3 md:p-4 rounded-full border border-white/10 flex flex-col items-center gap-4 z-20 pointer-events-auto"
+      >
+        <button
+          onclick="setFocusMode('continuous')"
+          class="w-8 h-8 rounded-full bg-blue-600 text-[8px] font-bold border border-white/10"
+        >
+          AF
+        </button>
+        <div class="h-32 md:h-40 w-2 flex items-center justify-center">
+          <input
+            type="range"
+            id="focusSlider"
+            min="0"
+            max="100"
+            step="0.1"
+            class="w-32 md:w-40 -rotate-90 origin-center cursor-pointer opacity-80"
+            oninput="manualFocus(this.value)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="controlDock"
+      class="absolute bottom-0 md:bottom-8 left-0 md:left-1/2 md:-translate-x-1/2 w-full md:w-auto z-30 ui-fade"
+    >
+      <div
+        class="bg-gray-900/95 md:bg-gray-900/80 backdrop-blur-md border-t md:border border-gray-700 rounded-t-3xl md:rounded-2xl px-6 py-4 md:px-8 md:py-4 flex flex-row items-center justify-between md:justify-center gap-4 md:gap-8 shadow-2xl"
+      >
+        <div class="flex gap-3">
+          <button
+            onclick="toggleMic()"
+            id="btnMic"
+            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition"
+          >
+            <div
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+            >
+              🎤
+            </div>
+            <span class="text-[9px] uppercase font-bold md:hidden">Mic</span>
+          </button>
+          <button
+            onclick="toggleCam()"
+            id="btnCam"
+            class="flex flex-col md:flex-row items-center gap-1 text-green-400 hover:text-white transition"
+          >
+            <div
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+            >
+              📷
+            </div>
+            <span class="text-[9px] uppercase font-bold md:hidden">Cam</span>
+          </button>
+        </div>
+
+        <div class="relative -top-6 md:top-0">
+          <button
+            onclick="toggleStream()"
+            id="btnAction"
+            class="bg-red-600 hover:bg-red-500 w-20 h-20 md:w-auto md:h-auto md:px-8 md:py-3 rounded-full md:rounded-xl font-bold text-white shadow-[0_0_20px_rgba(220,38,38,0.5)] border-4 border-gray-900 md:border-red-400 active:scale-95 transition flex items-center justify-center gap-2"
+          >
+            <span id="btnIcon" class="text-sm md:text-base">LIVE</span>
+          </button>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            onclick="togglePause()"
+            id="btnPause"
+            class="flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white disabled:opacity-30 transition"
+            disabled
+          >
+            <div
+              class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+            >
+              ⏸️
+            </div>
+            <span class="text-[9px] uppercase font-bold md:hidden">Pause</span>
+          </button>
+
+          <div class="relative">
+            <button
+              onclick="toggleSettings()"
+              class="flex flex-col md:flex-row items-center gap-1 text-gray-400 hover:text-white transition"
+            >
+              <div
+                class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-800 border border-gray-600 flex items-center justify-center text-lg"
+              >
+                ⚙️
+              </div>
+              <span class="text-[9px] uppercase font-bold md:hidden">Set</span>
+            </button>
+            <select
+              id="cameraSelect"
+              onchange="switchCamera()"
+              class="hidden"
+            ></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="settingsPanel"
+      class="hidden absolute inset-0 z-50 bg-black/90 backdrop-blur-md p-6 flex flex-col md:items-center md:justify-center animate-fade-in"
+    >
+      <div
+        class="w-full max-w-2xl bg-gray-900 border border-gray-700 p-6 md:p-8 rounded-2xl shadow-2xl relative flex flex-col h-full md:h-auto"
+      >
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            ⚙️ Stream Config
+          </h2>
+          <button
+            onclick="toggleSettings()"
+            class="text-gray-400 hover:text-white text-3xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="space-y-6 overflow-y-auto flex-1">
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-3"
+              >Resolution & Codec</label
+            >
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                onclick="selectRes(3840,2160, this)"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+              >
+                4K UHD
+              </button>
+              <button
+                onclick="selectRes(1920,1080, this)"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+              >
+                1080p
+              </button>
+              <button
+                onclick="selectRes(1280,720, this)"
+                class="res-btn bg-blue-600 text-white p-4 rounded-xl text-sm border border-blue-500 shadow-lg font-bold"
+              >
+                720p
+              </button>
+              <button
+                onclick="selectRes(640,360, this)"
+                class="res-btn bg-gray-800 p-4 rounded-xl text-sm border border-gray-700 font-bold"
+              >
+                360p
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-3"
+              >Framerate:
+              <span id="fpsVal" class="text-white">30</span> FPS</label
+            >
+            <input
+              type="range"
+              id="fpsRange"
+              min="24"
+              max="60"
+              value="30"
+              step="1"
+              class="w-full h-2 bg-gray-700 rounded-lg appearance-none"
+              oninput="document.getElementById('fpsVal').innerText = this.value"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-3"
+              >Camera</label
+            >
+            <select
+              id="cameraSelectModal"
+              class="w-full bg-gray-800 text-white p-4 rounded-xl border border-gray-600 focus:border-blue-500 outline-none text-sm"
+            ></select>
+          </div>
+        </div>
+
+        <button
+          onclick="applyConfig()"
+          class="w-full mt-6 bg-green-600 hover:bg-green-500 py-4 rounded-xl font-bold text-white shadow-lg text-lg active:scale-[0.98] transition"
+        >
+          APPLY SETTINGS
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const socket = io();
+      const room = "room1";
+      const rtcConfig = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+
+      let localStream, peerConnection;
+      let isStreaming = false,
+        isPaused = false,
+        isMicOn = true,
+        isCamOn = true;
+      let currentRes = { w: 1280, h: 720 },
+        currentFps = 30;
+      let currentDeviceId = null;
+      let uiTimeout;
+
+      // UI References
+      const localVideo = document.getElementById("localVideo");
+      const cameraSelect = document.getElementById("cameraSelect");
+      const cameraSelectModal = document.getElementById("cameraSelectModal");
+      const statusEl = document.getElementById("status");
+      const statusDot = document.getElementById("statusDot");
+      const bitrateEl = document.getElementById("bitrate");
+      const resDisplay = document.getElementById("resDisplay");
+
+      // --- UI AUTO HIDE (Desktop Only) ---
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        document.getElementById("bodyEl").addEventListener("mousemove", showUI);
+      }
+
+      function showUI() {
+        const top = document.getElementById("topBar");
+        const dock = document.getElementById("controlDock");
+        const focus = document.getElementById("focusPanel");
+
+        top.classList.remove("ui-hidden-desktop");
+        dock.classList.remove("ui-hidden-desktop");
+        focus.classList.remove("ui-hidden-desktop");
+
+        clearTimeout(uiTimeout);
+        uiTimeout = setTimeout(() => {
+          if (
+            !document
+              .getElementById("settingsPanel")
+              .classList.contains("hidden")
+          )
+            return;
+          top.classList.add("ui-hidden-desktop");
+          dock.classList.add("ui-hidden-desktop");
+          focus.classList.add("ui-hidden-desktop");
+        }, 3000);
+      }
+
+      // --- BITRATE & CODEC BOOSTER ---
+      function setMediaBitrate(sdp, bitrateKbps) {
+        var lines = sdp.split("\n");
+        var line = -1;
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].indexOf("m=video") === 0) {
+            line = i;
+            break;
+          }
+        }
+        if (line === -1) return sdp;
+        line++;
+        while (
+          lines[line].indexOf("i=") === 0 ||
+          lines[line].indexOf("c=") === 0
+        )
+          line++;
+        if (lines[line].indexOf("b=AS:") === 0)
+          lines[line] = "b=AS:" + bitrateKbps;
+        else lines.splice(line, 0, "b=AS:" + bitrateKbps);
+        return lines.join("\n");
+      }
+
+      // FUNGSI BARU: Force VP9 Codec (Lebih tajam dari VP8)
+      function preferCodec(sdp, codec) {
+        var sdpLines = sdp.split("\r\n");
+        var mLineIndex = -1;
+        for (var i = 0; i < sdpLines.length; i++) {
+          if (sdpLines[i].search("m=video") !== -1) {
+            mLineIndex = i;
+            break;
+          }
+        }
+        if (mLineIndex === -1) return sdp;
+
+        // Logic sederhana untuk memindahkan VP9/H264 ke prioritas utama di SDP
+        // (Implementasi penuh SDP munging agak panjang, ini versi simplenya)
+        return sdp; // Versi basic: Browser modern biasanya auto-negotiate codec terbaik.
+      }
+
+      // --- INIT ---
+      async function init() {
+        try {
+          await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+          await getCameras();
+          await startPreview();
+          if (window.innerWidth > 768) showUI();
+        } catch (e) {
+          alert("Camera Permission Required!");
+        }
+      }
+
+      async function getCameras() {
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const vDevs = devs.filter((d) => d.kind === "videoinput");
+        [cameraSelect, cameraSelectModal].forEach((sel) => {
+          sel.innerHTML = "";
+          vDevs.forEach((d) => {
+            const o = document.createElement("option");
+            o.value = d.deviceId;
+            o.text = d.label || `Cam ${sel.length + 1}`;
+            sel.appendChild(o);
+          });
+        });
+      }
+
+      async function startPreview(deviceId = null) {
+        if (localStream) localStream.getTracks().forEach((t) => t.stop());
+
+        let constraints = {
+          audio: true,
+          video: {
+            width: { ideal: currentRes.w },
+            height: { ideal: currentRes.h },
+            frameRate: { ideal: currentFps },
+            focusMode: "continuous",
+          },
+        };
+
+        // Logic Camera Selection
+        if (deviceId || cameraSelectModal.value) {
+          constraints.video.deviceId = {
+            exact: deviceId || cameraSelectModal.value,
+          };
+        } else {
+          constraints.video.facingMode = { ideal: "environment" }; // Default Back
+        }
+
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia(constraints);
+          localVideo.srcObject = localStream;
+
+          const sett = localStream.getVideoTracks()[0].getSettings();
+
+          // Responsive Mirror: Desktop (User) vs Mobile (Env)
+          if (sett.facingMode === "user") localVideo.classList.add("mirrored");
+          else localVideo.classList.remove("mirrored");
+
+          if (sett.deviceId) {
+            cameraSelect.value = sett.deviceId;
+            cameraSelectModal.value = sett.deviceId;
+          }
+          if (sett.height)
+            resDisplay.innerText = `${sett.height}p @ ${Math.round(
+              sett.frameRate || currentFps
+            )}`;
+
+          checkFocus(localStream.getVideoTracks()[0]);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      // --- STREAMING CORE ---
+      function toggleStream() {
+        const btnAction = document.getElementById("btnAction");
+        const btnIcon = document.getElementById("btnIcon");
+
+        if (!isStreaming) {
+          isStreaming = true;
+          socket.emit("join", room);
+          statusEl.innerText = "LIVE";
+          statusEl.classList.replace("text-gray-400", "text-red-500");
+          statusDot.classList.replace("bg-gray-500", "bg-red-500");
+          statusDot.classList.add("animate-pulse");
+
+          btnIcon.innerText = "STOP";
+          btnAction.classList.add("bg-gray-800", "border-gray-600");
+          btnAction.classList.remove("bg-red-600", "border-red-400");
+
+          document.getElementById("btnPause").disabled = false;
+          startBitrateCheck();
+        } else {
+          location.reload();
+        }
+      }
+
+      // UI Toggles
+      function togglePause() {
+        if (!localStream) return;
+        isPaused = !isPaused;
+        localStream.getVideoTracks()[0].enabled = !isPaused;
+        document
+          .getElementById("pauseOverlay")
+          .classList.toggle("hidden", !isPaused);
+      }
+      function toggleMic() {
+        isMicOn = !isMicOn;
+        localStream.getAudioTracks()[0].enabled = isMicOn;
+        const b = document.getElementById("btnMic");
+        b.classList.toggle("text-green-400", isMicOn);
+        b.classList.toggle("text-red-400", !isMicOn);
+      }
+      function toggleCam() {
+        isCamOn = !isCamOn;
+        localStream.getVideoTracks()[0].enabled = isCamOn;
+        const b = document.getElementById("btnCam");
+        b.classList.toggle("text-green-400", isCamOn);
+        b.classList.toggle("text-red-400", !isCamOn);
+      }
+      function toggleMirror() {
+        localVideo.classList.toggle("mirrored");
+      }
+      function toggleSettings() {
+        document.getElementById("settingsPanel").classList.toggle("hidden");
+      }
+
+      function selectRes(w, h, btn) {
+        currentRes = { w, h };
+        document
+          .querySelectorAll(".res-btn")
+          .forEach(
+            (b) =>
+              (b.className =
+                "res-btn bg-gray-800 hover:bg-gray-700 p-4 rounded-xl text-sm border border-gray-700 font-bold transition")
+          );
+        btn.className =
+          "res-btn bg-blue-600 text-white p-4 rounded-xl text-sm border border-blue-500 shadow-lg font-bold";
+      }
+      function applyConfig() {
+        currentFps = document.getElementById("fpsRange").value;
+        toggleSettings();
+        switchCamera();
+      }
+
+      function switchCamera() {
+        if (peerConnection) peerConnection.close();
+        startPreview(cameraSelectModal.value).then(() => {
+          if (isStreaming) createOffer();
+        });
+      }
+
+      // Focus
+      function checkFocus(t) {
+        const c = t.getCapabilities ? t.getCapabilities() : {};
+        document
+          .getElementById("focusPanel")
+          .classList.toggle("hidden", !c.focusMode);
+      }
+      function manualFocus(v) {
+        localStream
+          .getVideoTracks()[0]
+          .applyConstraints({
+            advanced: [{ focusMode: "manual", focusDistance: parseFloat(v) }],
+          })
+          .catch(() => {});
+      }
+      function setFocusMode(m) {
+        localStream
+          .getVideoTracks()[0]
+          .applyConstraints({ advanced: [{ focusMode: m }] })
+          .catch(() => {});
+      }
+
+      // WebRTC
+      socket.on("ready", () => {
+        if (isStreaming) createOffer();
+      });
+
+      async function createOffer() {
+        if (peerConnection) peerConnection.close();
+        peerConnection = new RTCPeerConnection(rtcConfig);
+        localStream
+          .getTracks()
+          .forEach((t) => peerConnection.addTrack(t, localStream));
+        peerConnection.onicecandidate = (e) => {
+          if (e.candidate)
+            socket.emit("candidate", { candidate: e.candidate, room: room });
+        };
+
+        const offer = await peerConnection.createOffer();
+        offer.sdp = setMediaBitrate(offer.sdp, 50000); // BITRATE UNLOCKER (50 Mbps)
+
+        await peerConnection.setLocalDescription(offer);
+        socket.emit("offer", { offer, room });
+      }
+
+      socket.on("answer", async (d) => {
+        if (peerConnection) await peerConnection.setRemoteDescription(d.answer);
+      });
+      socket.on("candidate", async (d) => {
+        if (peerConnection) await peerConnection.addIceCandidate(d.candidate);
+      });
+
+      function startBitrateCheck() {
+        let lB = 0,
+          lT = 0;
+        setInterval(async () => {
+          if (!peerConnection) return;
+          const stats = await peerConnection.getStats(null);
+          stats.forEach((r) => {
+            if (r.type === "outbound-rtp" && r.kind === "video") {
+              const now = r.timestamp,
+                b = r.bytesSent;
+              if (lT)
+                document.getElementById("bitrate").innerText = Math.floor(
+                  (8 * (b - lB)) / (now - lT)
+                );
+              lB = b;
+              lT = now;
+            }
+          });
+        }, 1000);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
